@@ -287,6 +287,7 @@
         preload() {
           // Create sprites programmatically using Phaser's graphics
           this.createSprites();
+          this.createAnimations();
         }
 
         createSprites() {
@@ -294,27 +295,32 @@
             frameWidth: 48,
             frameHeight: 48,
           });
+
+          this.load.spritesheet("bat", "assets/img/bat-sprite.png", {
+            frameWidth: 32,
+            frameHeight: 32,
+          });
           // Player sprite (blue square with simple design)
-          const playerGraphics = this.add.graphics();
-          playerGraphics.fillStyle(0x4169e1);
-          playerGraphics.fillRect(0, 0, 32, 32);
-          playerGraphics.fillStyle(0xffffff);
-          playerGraphics.fillRect(8, 8, 4, 4); // Left eye
-          playerGraphics.fillRect(20, 8, 4, 4); // Right eye
-          playerGraphics.fillRect(12, 20, 8, 4); // Mouth
-          playerGraphics.generateTexture("player", 32, 32);
-          playerGraphics.destroy();
+          // const playerGraphics = this.add.graphics();
+          // playerGraphics.fillStyle(0x4169e1);
+          // playerGraphics.fillRect(0, 0, 32, 32);
+          // playerGraphics.fillStyle(0xffffff);
+          // playerGraphics.fillRect(8, 8, 4, 4); // Left eye
+          // playerGraphics.fillRect(20, 8, 4, 4); // Right eye
+          // playerGraphics.fillRect(12, 20, 8, 4); // Mouth
+          // playerGraphics.generateTexture("player", 32, 32);
+          // playerGraphics.destroy();
 
           // Bat sprite (purple diamond shape)
-          const batGraphics = this.add.graphics();
-          batGraphics.fillStyle(0x8b008b);
-          batGraphics.fillTriangle(12, 0, 0, 12, 12, 24);
-          batGraphics.fillTriangle(12, 0, 24, 12, 12, 24);
-          batGraphics.fillStyle(0xff0000);
-          batGraphics.fillRect(10, 10, 2, 2); // Eye
-          batGraphics.fillRect(14, 10, 2, 2); // Eye
-          batGraphics.generateTexture("bat", 24, 24);
-          batGraphics.destroy();
+          // const batGraphics = this.add.graphics();
+          // batGraphics.fillStyle(0x8b008b);
+          // batGraphics.fillTriangle(12, 0, 0, 12, 12, 24);
+          // batGraphics.fillTriangle(12, 0, 24, 12, 12, 24);
+          // batGraphics.fillStyle(0xff0000);
+          // batGraphics.fillRect(10, 10, 2, 2); // Eye
+          // batGraphics.fillRect(14, 10, 2, 2); // Eye
+          // batGraphics.generateTexture("bat", 24, 24);
+          // batGraphics.destroy();
 
           // Golem sprite (brown rectangle with details)
           const golemGraphics = this.add.graphics();
@@ -365,6 +371,18 @@
           shieldGraphics.fillRect(8, 14, 1, 1);
           shieldGraphics.generateTexture("shield", 20, 20);
           shieldGraphics.destroy();
+        }
+
+        createAnimations() {
+          const batFly = {
+            key: "bat-fly",
+            frames: this.anims.generateFrameNumbers("bat-sprite", {
+              frames: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+            }),
+            frameRate: 16,
+            repeat: 1,
+          };
+          this.anims.create(batFly);
         }
 
         create() {
