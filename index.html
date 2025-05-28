@@ -1,0 +1,892 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>2D Platformer Game</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        background: #1a1a2e;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        font-family: "Courier New", monospace;
+      }
+      #game-container {
+        border: 2px solid #333;
+        background: #000;
+      }
+      .game-info {
+        color: white;
+        text-align: center;
+        margin-top: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <div>
+      <div id="game-container"></div>
+      <div class="game-info">
+        <p>Controls: SPACEBAR (Jump), SHIFT (Slide), A (Attack)</p>
+        <p>Collect power-ups and defeat enemies to maximize your score!</p>
+      </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/3.70.0/phaser.min.js"></script>
+    <script>
+      // MODEL - Game State Management
+      class GameModel {
+        constructor() {
+          this.player = {
+            x: 100,
+            y: 400,
+            health: 3,
+            speed: 160,
+            baseSpeed: 160,
+            isShielded: false,
+            canDoubleJump: true,
+            isSliding: false,
+            lastAttackTime: 0,
+            attackCooldown: 500,
+          };
+
+          this.enemies = [];
+          this.powerUps = [];
+          this.score = 0;
+          this.gameTime = 60; // 60 seconds for time bonus
+          this.gameStartTime = Date.now();
+          this.isGameOver = false;
+          this.levelCompleted = false;
+        }
+
+        updateScore(points) {
+          this.score += points;
+        }
+
+        getTimeRemaining() {
+          const elapsed = (Date.now() - this.gameStartTime) / 1000;
+          return Math.max(0, this.gameTime - elapsed);
+        }
+
+        applySpeedBoost() {
+          this.player.speed = this.player.baseSpeed * 1.5;
+          setTimeout(() => {
+            this.player.speed = this.player.baseSpeed;
+          }, 5000);
+        }
+
+        applyShield() {
+          this.player.isShielded = true;
+          setTimeout(() => {
+            this.player.isShielded = false;
+          }, 3000);
+        }
+
+        takeDamage() {
+          if (!this.player.isShielded) {
+            this.player.health--;
+            if (this.player.health <= 0) {
+              this.isGameOver = true;
+            }
+            return true;
+          }
+          return false;
+        }
+      }
+
+      // CONTROLLER - Input and Game Logic
+      class GameController {
+        constructor(model, view) {
+          this.model = model;
+          this.view = view;
+          this.keys = {};
+        }
+
+        setupInput(scene) {
+          this.keys = scene.input.keyboard.addKeys("SPACE,SHIFT,A");
+
+          // Jump
+          this.keys.SPACE.on("down", () => {
+            this.handleJump();
+          });
+
+          // Attack
+          this.keys.A.on("down", () => {
+            this.handleAttack();
+          });
+        }
+
+        handleJump() {
+          const player = this.view.player;
+          if (player.body.touching.down) {
+            player.setVelocityY(-500);
+            this.model.player.canDoubleJump = true;
+          } else if (this.model.player.canDoubleJump) {
+            player.setVelocityY(-400);
+            this.model.player.canDoubleJump = false;
+          }
+        }
+
+        handleAttack() {
+          const now = Date.now();
+          if (
+            now - this.model.player.lastAttackTime >
+            this.model.player.attackCooldown
+          ) {
+            this.model.player.lastAttackTime = now;
+            this.view.performAttack();
+          }
+        }
+
+        update() {
+          const player = this.view.player;
+
+          // Horizontal movement
+          if (this.keys.SHIFT.isDown) {
+            // Sliding
+            this.model.player.isSliding = true;
+            player.setVelocityX(this.model.player.speed * 1.5);
+            player.body.setSize(32, 16, true); // Smaller hitbox
+          } else {
+            this.model.player.isSliding = false;
+            player.body.setSize(32, 32, true); // Normal hitbox
+
+            // Normal movement (auto-move forward)
+            player.setVelocityX(this.model.player.speed);
+          }
+
+          // Update model position
+          this.model.player.x = player.x;
+          this.model.player.y = player.y;
+
+          // Check if player fell off screen
+          if (player.y > 600) {
+            this.model.takeDamage();
+            player.setPosition(100, 400);
+          }
+        }
+      }
+
+      // MAIN MENU SCENE
+      class MainMenuScene extends Phaser.Scene {
+        constructor() {
+          super({ key: "MainMenuScene" });
+        }
+
+        create() {
+          // Background
+          this.add.rectangle(400, 300, 800, 600, 0x1a1a2e);
+
+          // Title
+          this.add
+            .text(400, 150, "2D PLATFORMER", {
+              fontSize: "48px",
+              fill: "#ffffff",
+              fontFamily: "Courier New",
+              fontStyle: "bold",
+            })
+            .setOrigin(0.5);
+
+          // Subtitle
+          this.add
+            .text(400, 200, "Adventure Awaits!", {
+              fontSize: "24px",
+              fill: "#ffff00",
+              fontFamily: "Courier New",
+            })
+            .setOrigin(0.5);
+
+          // Play Button
+          const playButton = this.add.rectangle(400, 300, 200, 60, 0x228b22);
+          playButton.setInteractive({ useHandCursor: true });
+
+          const playText = this.add
+            .text(400, 300, "PLAY", {
+              fontSize: "28px",
+              fill: "#ffffff",
+              fontFamily: "Courier New",
+              fontStyle: "bold",
+            })
+            .setOrigin(0.5);
+
+          // Button hover effects
+          playButton.on("pointerover", () => {
+            playButton.setFillStyle(0x32cd32);
+            playText.setScale(1.1);
+          });
+
+          playButton.on("pointerout", () => {
+            playButton.setFillStyle(0x228b22);
+            playText.setScale(1);
+          });
+
+          // Start game on click
+          playButton.on("pointerdown", () => {
+            this.scene.start("GameScene");
+          });
+
+          // Instructions
+          this.add
+            .text(400, 400, "CONTROLS:", {
+              fontSize: "20px",
+              fill: "#ffffff",
+              fontFamily: "Courier New",
+              fontStyle: "bold",
+            })
+            .setOrigin(0.5);
+
+          this.add
+            .text(400, 430, "SPACEBAR - Jump", {
+              fontSize: "16px",
+              fill: "#cccccc",
+              fontFamily: "Courier New",
+            })
+            .setOrigin(0.5);
+
+          this.add
+            .text(400, 450, "SHIFT - Slide", {
+              fontSize: "16px",
+              fill: "#cccccc",
+              fontFamily: "Courier New",
+            })
+            .setOrigin(0.5);
+
+          this.add
+            .text(400, 470, "A - Attack", {
+              fontSize: "16px",
+              fill: "#cccccc",
+              fontFamily: "Courier New",
+            })
+            .setOrigin(0.5);
+
+          // Goal
+          this.add
+            .text(
+              400,
+              520,
+              "Defeat enemies, collect power-ups, and reach the golden goal!",
+              {
+                fontSize: "14px",
+                fill: "#ffff00",
+                fontFamily: "Courier New",
+              }
+            )
+            .setOrigin(0.5);
+        }
+      }
+
+      // VIEW - Phaser Scene and Rendering
+      class GameScene extends Phaser.Scene {
+        constructor() {
+          super({ key: "GameScene" });
+        }
+
+        preload() {
+          // Create sprites programmatically using Phaser's graphics
+          this.createSprites();
+        }
+
+        createSprites() {
+          this.load.spritesheet("player", "assets/img/george.png", {
+            frameWidth: 48,
+            frameHeight: 48,
+          });
+          // Player sprite (blue square with simple design)
+          const playerGraphics = this.add.graphics();
+          playerGraphics.fillStyle(0x4169e1);
+          playerGraphics.fillRect(0, 0, 32, 32);
+          playerGraphics.fillStyle(0xffffff);
+          playerGraphics.fillRect(8, 8, 4, 4); // Left eye
+          playerGraphics.fillRect(20, 8, 4, 4); // Right eye
+          playerGraphics.fillRect(12, 20, 8, 4); // Mouth
+          playerGraphics.generateTexture("player", 32, 32);
+          playerGraphics.destroy();
+
+          // Bat sprite (purple diamond shape)
+          const batGraphics = this.add.graphics();
+          batGraphics.fillStyle(0x8b008b);
+          batGraphics.fillTriangle(12, 0, 0, 12, 12, 24);
+          batGraphics.fillTriangle(12, 0, 24, 12, 12, 24);
+          batGraphics.fillStyle(0xff0000);
+          batGraphics.fillRect(10, 10, 2, 2); // Eye
+          batGraphics.fillRect(14, 10, 2, 2); // Eye
+          batGraphics.generateTexture("bat", 24, 24);
+          batGraphics.destroy();
+
+          // Golem sprite (brown rectangle with details)
+          const golemGraphics = this.add.graphics();
+          golemGraphics.fillStyle(0x8b4513);
+          golemGraphics.fillRect(0, 0, 40, 40);
+          golemGraphics.fillStyle(0xff0000);
+          golemGraphics.fillRect(8, 8, 4, 4); // Left eye
+          golemGraphics.fillRect(28, 8, 4, 4); // Right eye
+          golemGraphics.fillStyle(0x654321);
+          golemGraphics.fillRect(0, 30, 40, 10); // Base
+          golemGraphics.generateTexture("golem", 40, 40);
+          golemGraphics.destroy();
+
+          // Speed boost sprite (green star-like shape with glow effect)
+          const speedGraphics = this.add.graphics();
+          // Outer glow
+          speedGraphics.fillStyle(0x90ee90, 0.5);
+          speedGraphics.fillCircle(10, 10, 15);
+          // Main star shape
+          speedGraphics.fillStyle(0x00ff00);
+          speedGraphics.fillTriangle(10, 2, 8, 8, 12, 8);
+          speedGraphics.fillTriangle(18, 10, 12, 8, 12, 12);
+          speedGraphics.fillTriangle(10, 18, 8, 12, 12, 12);
+          speedGraphics.fillTriangle(2, 10, 8, 8, 8, 12);
+          speedGraphics.fillRect(6, 6, 8, 8);
+          // Bright center
+          speedGraphics.fillStyle(0xffff00);
+          speedGraphics.fillRect(8, 8, 4, 4);
+          speedGraphics.generateTexture("speedBoost", 20, 20);
+          speedGraphics.destroy();
+
+          // Shield sprite (blue shield shape with magical sparkles)
+          const shieldGraphics = this.add.graphics();
+          // Outer magical aura
+          shieldGraphics.fillStyle(0x87ceeb, 0.6);
+          shieldGraphics.fillCircle(10, 10, 12);
+          // Main shield
+          shieldGraphics.fillStyle(0x0000ff);
+          shieldGraphics.fillTriangle(10, 2, 2, 15, 18, 15);
+          shieldGraphics.fillRect(2, 10, 16, 8);
+          // Highlight
+          shieldGraphics.fillStyle(0x87ceeb);
+          shieldGraphics.fillRect(4, 6, 12, 6);
+          // Sparkle effects
+          shieldGraphics.fillStyle(0xffffff);
+          shieldGraphics.fillRect(6, 4, 1, 1);
+          shieldGraphics.fillRect(13, 7, 1, 1);
+          shieldGraphics.fillRect(8, 14, 1, 1);
+          shieldGraphics.generateTexture("shield", 20, 20);
+          shieldGraphics.destroy();
+        }
+
+        create() {
+          // Initialize MVC
+          this.model = new GameModel();
+          this.controller = new GameController(this.model, this);
+          this.controller.setupInput(this);
+
+          // Create world
+          this.createWorld();
+          this.createPlayer();
+          this.createEnemies();
+          this.createPowerUps();
+          this.createUI();
+
+          // Setup physics collisions
+          this.setupCollisions();
+
+          // Camera follows player
+          this.cameras.main.startFollow(this.player);
+          this.cameras.main.setBounds(0, 0, 2000, 600);
+
+          // Enemy AI timers
+          this.setupEnemyAI();
+        }
+
+        createWorld() {
+          // Create platforms
+          this.platforms = this.physics.add.staticGroup();
+
+          // Ground platforms
+          for (let i = 0; i < 20; i++) {
+            const platform = this.add.rectangle(
+              i * 100,
+              550,
+              100,
+              32,
+              0x228b22
+            );
+            this.physics.add.existing(platform, true);
+            this.platforms.add(platform);
+          }
+
+          // Floating platforms
+          const platformData = [
+            { x: 300, y: 450, width: 150 },
+            { x: 600, y: 350, width: 100 },
+            { x: 900, y: 400, width: 120 },
+            { x: 1200, y: 300, width: 100 },
+            { x: 1500, y: 450, width: 150 },
+            { x: 1800, y: 250, width: 100 },
+          ];
+
+          platformData.forEach((data) => {
+            const platform = this.add.rectangle(
+              data.x,
+              data.y,
+              data.width,
+              20,
+              0x228b22
+            );
+            this.physics.add.existing(platform, true);
+            this.platforms.add(platform);
+          });
+
+          // Goal area
+          this.goal = this.add.rectangle(1900, 500, 50, 100, 0xffd700);
+          this.physics.add.existing(this.goal, true);
+        }
+
+        createPlayer() {
+          this.player = this.physics.add.sprite(100, 400, "player");
+          this.player.setBounce(0.1);
+          this.player.setCollideWorldBounds(false);
+          this.player.body.setGravityY(800);
+        }
+
+        createEnemies() {
+          this.enemies = this.physics.add.group();
+
+          // Flying enemies (Bats)
+          const batPositions = [
+            { x: 400, y: 300 },
+            { x: 700, y: 200 },
+            { x: 1000, y: 250 },
+            { x: 1300, y: 180 },
+            { x: 1600, y: 300 },
+          ];
+
+          batPositions.forEach((pos) => {
+            const bat = this.physics.add.sprite(pos.x, pos.y, "bat");
+            bat.body.setGravityY(0);
+            bat.enemyType = "bat";
+            bat.startY = pos.y;
+            bat.time = Math.random() * Math.PI * 2;
+            bat.health = 1;
+            this.enemies.add(bat);
+          });
+
+          // Ground enemies (Golems)
+          const golemPositions = [
+            { x: 500, y: 500 },
+            { x: 800, y: 500 },
+            { x: 1100, y: 500 },
+            { x: 1400, y: 500 },
+            { x: 1700, y: 500 },
+          ];
+
+          golemPositions.forEach((pos) => {
+            const golem = this.physics.add.sprite(pos.x, pos.y, "golem");
+            golem.setBounce(0.1);
+            golem.body.setGravityY(800);
+            golem.enemyType = "golem";
+            golem.direction = 1;
+            golem.patrolDistance = 100;
+            golem.startX = pos.x;
+            golem.health = 2;
+            golem.isCharging = false;
+            this.enemies.add(golem);
+          });
+        }
+
+        createPowerUps() {
+          this.powerUps = this.physics.add.group();
+
+          const powerUpData = [
+            { x: 350, y: 400, type: "speed" },
+            { x: 650, y: 300, type: "shield" },
+            { x: 950, y: 350, type: "speed" },
+            { x: 1250, y: 250, type: "shield" },
+            { x: 1550, y: 400, type: "speed" },
+          ];
+
+          powerUpData.forEach((data) => {
+            const powerUp = this.physics.add.sprite(
+              data.x,
+              data.y,
+              data.type === "speed" ? "speedBoost" : "shield"
+            );
+            powerUp.body.setGravityY(0);
+            powerUp.powerUpType = data.type;
+            this.powerUps.add(powerUp);
+
+            // Floating animation
+            this.tweens.add({
+              targets: powerUp,
+              y: powerUp.y - 10,
+              duration: 1000,
+              ease: "Sine.easeInOut",
+              yoyo: true,
+              repeat: -1,
+            });
+
+            // Pulsing glow effect for power-ups
+            this.tweens.add({
+              targets: powerUp,
+              alpha: 0.6,
+              duration: 800,
+              ease: "Sine.easeInOut",
+              yoyo: true,
+              repeat: -1,
+            });
+
+            // Rotation for power-ups to make them more noticeable
+            this.tweens.add({
+              targets: powerUp,
+              rotation: Math.PI * 2,
+              duration: 2000,
+              ease: "Linear",
+              repeat: -1,
+            });
+          });
+        }
+
+        createUI() {
+          // Fixed UI elements
+          this.scoreText = this.add
+            .text(16, 16, "Score: 0", {
+              fontSize: "18px",
+              fill: "#ffffff",
+              fontFamily: "Courier New",
+            })
+            .setScrollFactor(0);
+
+          this.healthText = this.add
+            .text(16, 40, "Health: 3", {
+              fontSize: "18px",
+              fill: "#ffffff",
+              fontFamily: "Courier New",
+            })
+            .setScrollFactor(0);
+
+          this.timeText = this.add
+            .text(16, 64, "Time: 60", {
+              fontSize: "18px",
+              fill: "#ffffff",
+              fontFamily: "Courier New",
+            })
+            .setScrollFactor(0);
+
+          this.statusText = this.add
+            .text(16, 88, "", {
+              fontSize: "14px",
+              fill: "#ffff00",
+              fontFamily: "Courier New",
+            })
+            .setScrollFactor(0);
+        }
+
+        setupCollisions() {
+          // Player collisions
+          this.physics.add.collider(this.player, this.platforms);
+
+          // Enemy collisions
+          this.physics.add.collider(this.enemies, this.platforms);
+
+          // Player-enemy collision
+          this.physics.add.overlap(
+            this.player,
+            this.enemies,
+            (player, enemy) => {
+              if (this.model.takeDamage()) {
+                // Knockback
+                player.setVelocityX(-200);
+                player.setVelocityY(-300);
+              }
+            }
+          );
+
+          // Player-powerup collision
+          this.physics.add.overlap(
+            this.player,
+            this.powerUps,
+            (player, powerUp) => {
+              this.collectPowerUp(powerUp);
+            }
+          );
+
+          // Player-goal collision
+          this.physics.add.overlap(this.player, this.goal, () => {
+            this.completeLevel();
+          });
+        }
+
+        setupEnemyAI() {
+          // Bat AI - sinusoidal movement and diving
+          this.time.addEvent({
+            delay: 50,
+            callback: () => {
+              this.enemies.children.entries.forEach((enemy) => {
+                if (enemy.enemyType === "bat") {
+                  enemy.time += 0.1;
+                  enemy.y = enemy.startY + Math.sin(enemy.time) * 30;
+
+                  // Dive attack when player is close
+                  const distToPlayer = Phaser.Math.Distance.Between(
+                    enemy.x,
+                    enemy.y,
+                    this.player.x,
+                    this.player.y
+                  );
+                  if (distToPlayer < 150 && Math.random() < 0.01) {
+                    const angle = Phaser.Math.Angle.Between(
+                      enemy.x,
+                      enemy.y,
+                      this.player.x,
+                      this.player.y
+                    );
+                    enemy.setVelocity(
+                      Math.cos(angle) * 200,
+                      Math.sin(angle) * 200
+                    );
+
+                    // Return to normal movement after 1 second
+                    this.time.delayedCall(1000, () => {
+                      enemy.setVelocity(0, 0);
+                    });
+                  }
+                }
+              });
+            },
+            loop: true,
+          });
+
+          // Golem AI - patrol and charge
+          this.time.addEvent({
+            delay: 100,
+            callback: () => {
+              this.enemies.children.entries.forEach((enemy) => {
+                if (enemy.enemyType === "golem" && !enemy.isCharging) {
+                  // Patrol behavior
+                  const distFromStart = Math.abs(enemy.x - enemy.startX);
+                  if (distFromStart > enemy.patrolDistance) {
+                    enemy.direction *= -1;
+                  }
+                  enemy.setVelocityX(enemy.direction * 50);
+
+                  // Charge at player when close
+                  const distToPlayer = Math.abs(enemy.x - this.player.x);
+                  if (
+                    distToPlayer < 200 &&
+                    Math.abs(enemy.y - this.player.y) < 50
+                  ) {
+                    enemy.isCharging = true;
+                    const chargeDirection = this.player.x > enemy.x ? 1 : -1;
+                    enemy.setVelocityX(chargeDirection * 300);
+
+                    // Stop charging after 2 seconds
+                    this.time.delayedCall(2000, () => {
+                      enemy.isCharging = false;
+                    });
+                  }
+                }
+              });
+            },
+            loop: true,
+          });
+        }
+
+        performAttack() {
+          // Create temporary attack hitbox
+          const attackBox = this.add.rectangle(
+            this.player.x + 30,
+            this.player.y,
+            40,
+            40,
+            0xff0000,
+            0.3
+          );
+          this.physics.add.existing(attackBox);
+
+          // Check for enemy hits
+          this.physics.add.overlap(attackBox, this.enemies, (box, enemy) => {
+            enemy.health--;
+            if (enemy.health <= 0) {
+              // Award points based on enemy type
+              const points = enemy.enemyType === "bat" ? 50 : 100;
+              this.model.updateScore(points);
+              enemy.destroy();
+            } else {
+              // Knockback
+              const knockDirection = enemy.x > this.player.x ? 1 : -1;
+              enemy.setVelocityX(knockDirection * 200);
+              enemy.setTint(0xff0000);
+              this.time.delayedCall(200, () => {
+                enemy.clearTint();
+              });
+            }
+          });
+
+          // Remove attack box after brief moment
+          this.time.delayedCall(100, () => {
+            attackBox.destroy();
+          });
+        }
+
+        collectPowerUp(powerUp) {
+          this.model.updateScore(100);
+
+          if (powerUp.powerUpType === "speed") {
+            this.model.applySpeedBoost();
+            this.statusText.setText("Speed Boost Active!");
+            this.time.delayedCall(5000, () => {
+              this.statusText.setText("");
+            });
+          } else if (powerUp.powerUpType === "shield") {
+            this.model.applyShield();
+            this.statusText.setText("Shield Active!");
+            this.time.delayedCall(3000, () => {
+              this.statusText.setText("");
+            });
+          }
+
+          powerUp.destroy();
+        }
+
+        completeLevel() {
+          if (!this.model.levelCompleted) {
+            this.model.levelCompleted = true;
+            const timeBonus = Math.floor(this.model.getTimeRemaining() * 10);
+            this.model.updateScore(timeBonus);
+
+            const completionText = this.add
+              .text(
+                this.cameras.main.centerX,
+                this.cameras.main.centerY - 50,
+                `Level Complete!\nTime Bonus: ${timeBonus}\nFinal Score: ${this.model.score}`,
+                {
+                  fontSize: "24px",
+                  fill: "#ffff00",
+                  fontFamily: "Courier New",
+                  align: "center",
+                }
+              )
+              .setOrigin(0.5)
+              .setScrollFactor(0);
+
+            // Return to menu button
+            const menuButton = this.add.rectangle(
+              this.cameras.main.centerX,
+              this.cameras.main.centerY + 50,
+              200,
+              50,
+              0x228b22
+            );
+            menuButton.setInteractive({ useHandCursor: true });
+            menuButton.setScrollFactor(0);
+
+            const menuText = this.add
+              .text(
+                this.cameras.main.centerX,
+                this.cameras.main.centerY + 50,
+                "MAIN MENU",
+                {
+                  fontSize: "18px",
+                  fill: "#ffffff",
+                  fontFamily: "Courier New",
+                }
+              )
+              .setOrigin(0.5)
+              .setScrollFactor(0);
+
+            menuButton.on("pointerdown", () => {
+              this.scene.start("MainMenuScene");
+            });
+          }
+        }
+
+        update() {
+          if (this.model.isGameOver) {
+            const gameOverText = this.add
+              .text(
+                this.cameras.main.centerX,
+                this.cameras.main.centerY - 50,
+                `Game Over!\nFinal Score: ${this.model.score}`,
+                {
+                  fontSize: "24px",
+                  fill: "#ff0000",
+                  fontFamily: "Courier New",
+                  align: "center",
+                }
+              )
+              .setOrigin(0.5)
+              .setScrollFactor(0);
+
+            // Return to menu button
+            const menuButton = this.add.rectangle(
+              this.cameras.main.centerX,
+              this.cameras.main.centerY + 30,
+              200,
+              50,
+              0x8b0000
+            );
+            menuButton.setInteractive({ useHandCursor: true });
+            menuButton.setScrollFactor(0);
+
+            const menuText = this.add
+              .text(
+                this.cameras.main.centerX,
+                this.cameras.main.centerY + 30,
+                "MAIN MENU",
+                {
+                  fontSize: "18px",
+                  fill: "#ffffff",
+                  fontFamily: "Courier New",
+                }
+              )
+              .setOrigin(0.5)
+              .setScrollFactor(0);
+
+            menuButton.on("pointerdown", () => {
+              this.scene.start("MainMenuScene");
+            });
+
+            return;
+          }
+
+          // Update controller
+          this.controller.update();
+
+          // Update UI
+          this.scoreText.setText(`Score: ${this.model.score}`);
+          this.healthText.setText(`Health: ${this.model.player.health}`);
+          this.timeText.setText(
+            `Time: ${Math.ceil(this.model.getTimeRemaining())}`
+          );
+
+          // Shield visual effect
+          if (this.model.player.isShielded) {
+            this.player.setTint(0x00ffff);
+          } else {
+            this.player.clearTint();
+          }
+
+          // Check time limit
+          if (
+            this.model.getTimeRemaining() <= 0 &&
+            !this.model.levelCompleted
+          ) {
+            this.model.isGameOver = true;
+          }
+        }
+      }
+
+      // MAIN - Initialize Phaser Game
+      const config = {
+        type: Phaser.AUTO,
+        width: 800,
+        height: 600,
+        parent: "game-container",
+        backgroundColor: "#87CEEB",
+        physics: {
+          default: "arcade",
+          arcade: {
+            gravity: { y: 0 },
+            debug: false,
+          },
+        },
+        scene: [MainMenuScene, GameScene],
+      };
+
+      const game = new Phaser.Game(config);
+    </script>
+  </body>
+</html>
