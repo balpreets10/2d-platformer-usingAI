@@ -16,7 +16,7 @@ class GameScene extends Phaser.Scene {
             endFrame: 3,
         });
 
-        this.load.spritesheet("shield", "assets/sprites/rotating_orbs.png", {
+        this.load.spritesheet("shield", "assets/sprites/shield-powerup.png", {
             frameWidth: 32,
             frameHeight: 32,
             startFrame: 0,
@@ -33,71 +33,93 @@ class GameScene extends Phaser.Scene {
             frameWidth: 48,
             frameHeight: 48
         });
+
+        this.load.spritesheet('speedBoost', 'assets/sprites/speedBoost.png', {
+            frameWidth: 32,
+            frameHeight: 32,
+            startFrame: 0,
+            endFrame: 0
+        });
         // Create sprites programmatically using Phaser's graphics
     }
 
     create() {
 
-        // Initialize animations first
-        AnimationManager.createAnimations(this);
+        try {
+            this.cleanup();
 
-        // Initialize MVC with current level
-        this.model = new GameModel(this.currentLevel);
-        this.controller = new GameController(this.model, this);
+            // Initialize animations first
+            if (typeof AnimationManager !== 'undefined') {
+                AnimationManager.createAnimations(this);
+            } else {
+                console.error('AnimationManager not loaded');
+            }
 
-        // Set up input
-        // this.keys = this.input.keyboard.addKeys(
-        //     "LEFT,RIGHT,UP,DOWN,SPACE,SHIFT,A"
-        // );
+            // Initialize MVC with current level
+            this.model = new GameModel(this.currentLevel);
+            this.controller = new GameController(this.model, this);
 
-        this.cursors = this.input.keyboard.createCursorKeys();
-        this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
-        this.shiftKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT);
-        this.attackKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A);
-        this.leftKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.LEFT);
-        this.rightKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.RIGHT);
-        this.upKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.UP);
+            this.cursors = this.input.keyboard.createCursorKeys();
+            this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+            this.shiftKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT);
+            this.attackKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A);
+            this.leftKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.LEFT);
+            this.rightKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.RIGHT);
+            this.upKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.UP);
 
-        this.controller.keys = this.keys;
+            this.controller.keys = this.keys;
 
-        // Set background
-        const theme = this.model.getBackgroundTheme();
-        this.cameras.main.setBackgroundColor(theme.color);
+            // Set background
+            const theme = this.model.getBackgroundTheme();
+            this.cameras.main.setBackgroundColor(theme.color);
 
-        // Create world elements in correct order
-        this.createWorld();
-        this.createPlayer();
-        this.createEnemies(); // Now this will have access to this.model
-        this.createPowerUps();
-        this.createUI();
 
-        // Setup physics
-        this.physics.world.gravity.y = 800;
 
-        // Rest of the create method...
-        this.setupCollisions();
-        this.cameras.main.startFollow(this.player);
-        this.cameras.main.setBounds(0, 0, 3000, 600);
-        this.setupEnemyAI();
+            // Create world elements in correct order
+            this.createWorld();
+            this.createPlayer();
+            this.createEnemies(); // Now this will have access to this.model
+            this.createPowerUps();
+            this.createUI();
 
-        // Level intro text
-        const levelIntro = this.add
-            .text(400, 100, `LEVEL ${this.currentLevel}`, {
-                fontSize: "32px",
-                fill: "#ffff00",
-                fontFamily: "Courier New",
-                fontStyle: "bold",
-            })
-            .setOrigin(0.5)
-            .setScrollFactor(0);
+            // Setup physics
+            this.physics.world.gravity.y = 800;
 
-        this.tweens.add({
-            targets: levelIntro,
-            alpha: 0,
-            duration: 2000,
-            delay: 1000,
-            onComplete: () => levelIntro.destroy(),
-        });
+            // Fix camera bounds to match level length
+            this.physics.world.setBounds(0, 0, 3000, 600); // Match this with your level length
+            this.cameras.main.setBounds(0, 0, 3000, 600);  // Match this with your level length
+            this.player.setCollideWorldBounds(true);
+            this.cameras.main.startFollow(this.player, true, 0.5, 0.5);
+
+            this.setupCollisions();
+
+            this.setupEnemyAI();
+
+            // Level intro text
+            const levelIntro = this.add
+                .text(400, 100, `LEVEL ${this.currentLevel}`, {
+                    fontSize: "32px",
+                    fill: "#ffff00",
+                    fontFamily: "Courier New",
+                    fontStyle: "bold",
+                })
+                .setOrigin(0.5)
+                .setScrollFactor(0);
+
+            this.tweens.add({
+                targets: levelIntro,
+                alpha: 0,
+                duration: 2000,
+                delay: 1000,
+                onComplete: () => levelIntro.destroy(),
+            });
+        }
+
+
+        catch (error) {
+            console.error("Error during create:", error);
+        }
+
     }
 
     createWorld() {
@@ -201,7 +223,9 @@ class GameScene extends Phaser.Scene {
 
     // REWORKED CREATE ENEMIES FUNCTION
     createEnemies() {
-        this.enemies = this.physics.add.group();
+        this.enemies = this.physics.add.group({
+            allowGravity: false
+        });
         var difficulty = this.model.difficulty;
 
         // Create flying enemies (Bats)
@@ -212,16 +236,25 @@ class GameScene extends Phaser.Scene {
             const y = 150 + Math.random() * 200;
 
             const bat = this.physics.add.sprite(x, y, "bat");
-            bat.play("bat_fly"); // Start animation
-            bat.body.setGravityY(0);
-            bat.body.setSize(32, 32);
+            bat.anims.play('bat_fly', true); // Add true parameter to force animation restart
+            bat.body.allowGravity = false; // Ensure individual sprite has gravity disabled
+            bat.body.setSize(24, 24); // Smaller hitbox
+            bat.body.setOffset(4, 4); // Center the hitbox
             bat.enemyType = "bat";
             bat.startY = y;
             bat.time = Math.random() * Math.PI * 2;
             bat.health = 1;
             bat.speed = difficulty.enemySpeed;
+
+            // Stop any existing animations first
+            bat.on('animationcomplete', () => {
+                bat.anims.play('bat_fly', true);
+            });
+
             this.enemies.add(bat);
         }
+
+
 
         // Create ground enemies (Golems)
         const golemCount = difficulty.enemyCount - batCount;
@@ -246,7 +279,9 @@ class GameScene extends Phaser.Scene {
 
     // REWORKED CREATE POWER UPS FUNCTION
     createPowerUps() {
-        this.powerUps = this.physics.add.group();
+        this.powerUps = this.physics.add.group({
+            allowGravity: false
+        });
         const difficulty = this.model.difficulty;
 
         const powerUpTypes = ["speed", "shield"];
@@ -262,39 +297,61 @@ class GameScene extends Phaser.Scene {
                 y,
                 type === "speed" ? "speedBoost" : "shield"
             );
-            powerUp.body.setGravityY(0);
-            powerUp.body.setSize(20, 20);
-            powerUp.powerUpType = type;
-            this.powerUps.add(powerUp);
 
-            //Enhanced floating animation
-            this.tweens.add({
-                targets: powerUp,
-                y: powerUp.y - 15,
-                duration: 1500,
-                ease: "Sine.easeInOut",
-                yoyo: true,
-                repeat: -1,
+            if (type === "shield") {
+                powerUp.play('shield_rotate', true);
+            } else {
+                powerUp.play('speed_pulse', true);
+            }
+
+            powerUp.body.setGravityY(0);
+            powerUp.body.allowGravity = false; // Ensure individual sprite has gravity disabled
+            powerUp.body.setSize(24, 24);
+            powerUp.body.setOffset(4, 4);
+            powerUp.powerUpType = type;
+
+            // Stop any existing animations first
+            powerUp.on('animationcomplete', () => {
+                if (type === "shield") {
+                    powerUp.play('shield_rotate', true);
+                } else {
+                    powerUp.play('speed_pulse', true);
+                }
             });
 
-            // Pulsing glow effect
+            // Smooth floating movement
             // this.tweens.add({
             //     targets: powerUp,
-            //     alpha: 0.5,
-            //     duration: 1000,
-            //     ease: "Sine.easeInOut",
+            //     y: y - 15,
+            //     duration: 2000,
+            //     ease: 'Sine.easeInOut',
             //     yoyo: true,
             //     repeat: -1,
+            //     delay: Math.random() * 1000 // Randomize start time for varied movement
             // });
 
-            // Rotation
-            this.tweens.add({
-                targets: powerUp,
-                rotation: Math.PI * 2,
-                duration: 3000,
-                ease: "Linear",
-                repeat: -1,
-            });
+            // Rotation animation based on powerup type
+            // if (type === "shield") {
+            //     this.tweens.add({
+            //         targets: powerUp,
+            //         angle: 360,
+            //         duration: 3000,
+            //         ease: 'Linear',
+            //         repeat: -1
+            //     });
+            // } else 
+            if (type === "speed") {
+                // Speed boost rotation
+                this.tweens.add({
+                    targets: powerUp,
+                    angle: -360, // Opposite direction for visual distinction
+                    duration: 4000,
+                    ease: 'Linear',
+                    repeat: -1
+                });
+            }
+
+            this.powerUps.add(powerUp);
         }
     }
 
@@ -359,7 +416,11 @@ class GameScene extends Phaser.Scene {
         if (!this.progressBar) return;
 
         this.progressBar.clear();
-        const progress = this.player.x / 1900; // Assuming goal is at x=1850
+
+        // Calculate progress based on level length (distance to goal)
+        const levelLength = 1850; // Match with goal x position
+        const progress = Math.min(Math.max(this.player.x / levelLength, 0), 1);
+
         const barWidth = 200;
         const barHeight = 8;
         const x = 16;
@@ -371,12 +432,7 @@ class GameScene extends Phaser.Scene {
 
         // Progress
         this.progressBar.fillStyle(0x00ff00);
-        this.progressBar.fillRect(
-            x,
-            y,
-            barWidth * Math.min(progress, 1),
-            barHeight
-        );
+        this.progressBar.fillRect(x, y, barWidth * progress, barHeight);
 
         // Border
         this.progressBar.lineStyle(2, 0xffffff);
@@ -443,43 +499,69 @@ class GameScene extends Phaser.Scene {
     }
 
     setupEnemyAI() {
-        // Bat AI - sinusoidal movement and diving
+        // Bat AI - with significantly reduced update frequency and smoother movement
         this.time.addEvent({
-            delay: 50,
+            delay: 200, // Doubled delay for less frequent updates
             callback: () => {
                 this.enemies.children.entries.forEach((enemy) => {
                     if (enemy.enemyType === "bat") {
-                        enemy.time += 0.1;
-                        enemy.y = enemy.startY + Math.sin(enemy.time) * 30;
+                        // Much slower time increment
+                        enemy.time += 0.05;
 
-                        // Flip sprite based on movement direction
-                        if (enemy.x < this.player.x) {
-                            enemy.setFlipX(false);
-                        } else {
-                            enemy.setFlipX(true);
+                        // Reduced movement amplitude and smoother interpolation
+                        const targetY = enemy.startY + Math.sin(enemy.time) * 15; // Halved amplitude
+                        enemy.y = Phaser.Math.Linear(enemy.y, targetY, 0.05); // Reduced interpolation speed
+
+                        // Handle direction changes with less frequency
+                        if (enemy.lastDirectionChange === undefined ||
+                            this.time.now > enemy.lastDirectionChange + 500) { // Only change direction every 500ms
+
+                            const shouldFlip = enemy.x < this.player.x;
+                            if (enemy.flipX !== shouldFlip) {
+                                enemy.setFlipX(shouldFlip);
+                                enemy.lastDirectionChange = this.time.now;
+                            }
                         }
+
+                        // Much less frequent diving behavior
                         const distToPlayer = Math.abs(enemy.x - this.player.x);
-                        if (distToPlayer < 150 && Math.random() < 0.01) {
+                        if (distToPlayer < 150 && Math.random() < 0.001) { // Significantly reduced frequency
                             const angle = Phaser.Math.Angle.Between(
                                 enemy.x,
                                 enemy.y,
                                 this.player.x,
                                 this.player.y
                             );
-                            enemy.setVelocity(
-                                Math.cos(angle) * 200,
-                                Math.sin(angle) * 200
-                            );
 
-                            // Return to normal movement after 1 second
-                            this.time.delayedCall(1000, () => {
-                                enemy.setVelocity(0, 0);
+                            // Slower diving speed
+                            const speed = 100;
+                            const velocityX = Math.cos(angle) * speed;
+                            const velocityY = Math.sin(angle) * speed;
+
+                            // Smooth velocity transition
+                            this.tweens.add({
+                                targets: enemy,
+                                velocityX: velocityX,
+                                velocityY: velocityY,
+                                duration: 300,
+                                ease: 'Sine.easeIn',
+                                onComplete: () => {
+                                    // Gradual return to normal movement
+                                    this.tweens.add({
+                                        targets: enemy,
+                                        velocityX: 0,
+                                        velocityY: 0,
+                                        duration: 1000,
+                                        ease: 'Sine.easeOut',
+                                        delay: 500
+                                    });
+                                }
                             });
                         }
                     }
                 });
             },
-            loop: true,
+            loop: true
         });
 
         // Golem AI - patrol and charge
@@ -588,17 +670,77 @@ class GameScene extends Phaser.Scene {
             // Stop all game mechanics
             this.physics.pause();
 
-            // Start level complete scene with data
-            this.scene.start("LevelCompleteScene", {
+            // Store data for next scene
+            const sceneData = {
                 level: this.currentLevel,
                 score: this.model.score,
                 timeBonus: timeBonus,
-                totalScore: totalScore,
-            });
+                totalScore: totalScore
+            };
+
+            // Properly cleanup before transitioning
+            //this.physics.world.cleanup();
+            //this.cleanup();
+
+            // Start level complete scene with stored data
+            this.scene.start("LevelCompleteScene", sceneData);
         }
     }
 
     update() {
+
+        if (!this.scene.isActive('GameScene')) return;
+
+        // Game over check
+        if (this.model?.isGameOver) {
+            this.handleGameOver();
+            return;
+        }
+
+
+
+        if (this.player?.body && this.model?.player) {
+            this.handlePlayerMovement();
+            this.handlePlayerJump();
+            this.updatePlayerAnimation();
+        }
+
+        if (this.player && this.player.body) {
+
+
+
+            // Update animation based on movement
+            this.updatePlayerAnimation();
+        }
+
+        // Update controller if it exists
+        if (this.controller) {
+            this.controller.update();
+        }
+
+        // Update UI if elements exist
+        this.updateUI();
+        this.updateProgressBar();
+
+
+
+        // Shield visual effect
+        if (this.model.player.isShielded) {
+            this.player.setTint(0x00ffff);
+        } else {
+            this.player.clearTint();
+        }
+
+        // Check time limit
+        if (
+            this.model.getTimeRemaining() <= 0 &&
+            !this.model.levelCompleted
+        ) {
+            this.model.isGameOver = true;
+        }
+    }
+
+    handleGameOver() {
         if (this.model.isGameOver) {
             const gameOverText = this.add
                 .text(
@@ -646,60 +788,111 @@ class GameScene extends Phaser.Scene {
 
             return;
         }
+    }
 
-        //Handle player movement and jumping
-        if (this.spaceKey.isDown && this.player.body.touching.down) {
-            this.player.setVelocityY(-400);
+    // Add these helper methods
+    handlePlayerMovement() {
+        if (!this.cursors || !this.player || !this.model) return;
+
+        if (this.cursors.left.isDown || this.leftKey?.isDown) {
+            this.player.setVelocityX(-160);
+            this.model.player.direction = 'left';
+            this.model.player.isMoving = true;
+        } else if (this.cursors.right.isDown || this.rightKey?.isDown) {
+            this.player.setVelocityX(160);
+            this.model.player.direction = 'right';
+            this.model.player.isMoving = true;
+        } else {
+            this.player.setVelocityX(0);
+            this.model.player.isMoving = false;
         }
+    }
 
-        if (this.player && this.player.body) {
-            // Left/Right movement
-            if (this.cursors.left.isDown || this.leftKey.isDown) {
-                this.player.setVelocityX(-160);
-                this.model.player.direction = 'left';
-                this.model.player.isMoving = true;
-            } else if (this.cursors.right.isDown || this.rightKey.isDown) {
-                this.player.setVelocityX(160);
-                this.model.player.direction = 'right';
-                this.model.player.isMoving = true;
-            } else {
-                this.player.setVelocityX(0);
-                this.model.player.isMoving = false;
-            }
-
-            // Jumping (keep existing jump code)
-            if ((this.spaceKey.isDown || this.cursors.up.isDown) && this.player.body.touching.down) {
-                this.player.setVelocityY(-600);
+    handlePlayerJump() {
+        // Double Jump Implementation
+        if ((this.spaceKey.isDown || this.cursors.up.isDown) && !this.jumpKeyPressed) {
+            this.jumpKeyPressed = true;
+            if (this.player.body.touching.down) {
+                // First jump
+                this.player.setVelocityY(-500);
+                this.model.player.isJumping = true;
+                this.canDoubleJump = true;
+            } else if (this.canDoubleJump) {
+                // Double jump
+                this.player.setVelocityY(-400);
+                this.canDoubleJump = false;
                 this.model.player.isJumping = true;
             }
-
-            // Update animation based on movement
-            this.updatePlayerAnimation();
         }
 
-        // Update controller
-        this.controller.update();
-
-        // Update UI
-        this.scoreText.setText(`Score: ${this.model.score}`);
-        this.healthText.setText(`Health: ${this.model.player.health}`);
-        this.timeText.setText(
-            `Time: ${Math.ceil(this.model.getTimeRemaining())}`
-        );
-
-        // Shield visual effect
-        if (this.model.player.isShielded) {
-            this.player.setTint(0x00ffff);
-        } else {
-            this.player.clearTint();
+        if (!this.spaceKey.isDown && !this.cursors.up.isDown) {
+            this.jumpKeyPressed = false;
         }
 
-        // Check time limit
-        if (
-            this.model.getTimeRemaining() <= 0 &&
-            !this.model.levelCompleted
-        ) {
-            this.model.isGameOver = true;
+        // Reset jumping state when landing
+        if (this.player.body.touching.down) {
+            this.model.player.isJumping = false;
+        }
+    }
+
+    updateUI() {
+        if (this.scoreText && this.model) {
+            this.scoreText.setText(`Score: ${this.model.score}`);
+        }
+        if (this.healthText && this.model?.player) {
+            this.healthText.setText(`Health: ${this.model.player.health}`);
+        }
+        if (this.timeText && this.model) {
+            this.timeText.setText(`Time: ${Math.ceil(this.model.getTimeRemaining())}`);
+        }
+    }
+
+    cleanup() {
+        try {
+            // Clear existing groups with proper checks
+            if (this.enemies?.getChildren()?.length > 0) {
+                this.enemies.clear(true, true);
+                this.enemies.destroy();
+            }
+            if (this.powerUps?.getChildren()?.length > 0) {
+                this.powerUps.clear(true, true);
+                this.powerUps.destroy();
+            }
+            if (this.platforms?.getChildren()?.length > 0) {
+                this.platforms.clear(true, true);
+                this.platforms.destroy();
+            }
+
+            // Safely destroy sprites
+            if (this.player?.body) {
+                this.player.destroy();
+            }
+            if (this.goal?.body) {
+                this.goal.destroy();
+            }
+
+            // Clear UI elements with null checks
+            if (this.progressBar) {
+                this.progressBar.clear();
+                this.progressBar.destroy();
+                this.progressBar = null;
+            }
+
+            // Safely destroy text objects
+            ['scoreText', 'healthText', 'timeText', 'levelText', 'statusText'].forEach(textKey => {
+                if (this[textKey]) {
+                    this[textKey].destroy();
+                    this[textKey] = null;
+                }
+            });
+
+            // Reset scene-specific variables
+            this.jumpKeyPressed = false;
+            this.canDoubleJump = false;
+            this.currentPlayerAnim = null;
+
+        } catch (error) {
+            console.error('Cleanup error:', error);
         }
     }
 }
