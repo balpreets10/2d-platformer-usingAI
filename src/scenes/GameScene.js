@@ -9,11 +9,18 @@ class GameScene extends Phaser.Scene {
     }
 
     preload() {
-        this.load.spritesheet("bat", "assets/sprites/bat.png", {
+        this.load.spritesheet("bat", "assets/sprites/bat-vertical.png", {
             frameWidth: 32,
             frameHeight: 32,
             startFrame: 0,
-            endFrame: 15,
+            endFrame: 3,
+        });
+
+        this.load.spritesheet("shield", "assets/sprites/rotating_orbs.png", {
+            frameWidth: 32,
+            frameHeight: 32,
+            startFrame: 0,
+            endFrame: 31,
         });
 
         this.load.spritesheet("golem", "assets/sprites/golem.png", {
@@ -70,7 +77,7 @@ class GameScene extends Phaser.Scene {
         // Rest of the create method...
         this.setupCollisions();
         this.cameras.main.startFollow(this.player);
-        this.cameras.main.setBounds(0, 0, 2000, 600);
+        this.cameras.main.setBounds(0, 0, 3000, 600);
         this.setupEnemyAI();
 
         // Level intro text
@@ -91,59 +98,6 @@ class GameScene extends Phaser.Scene {
             delay: 1000,
             onComplete: () => levelIntro.destroy(),
         });
-    }
-
-    createEnemies() {
-        this.enemies = this.physics.add.group();
-
-        // Create bats
-        const batCount = Math.min(Math.floor(difficulty.enemyCount / 2), 8);
-        for (let i = 0; i < batCount; i++) {
-            // const x = 300 + i * 250 + Math.random() * 100;
-            // const y = 150 + Math.random() * 200;
-            const x = 300 + i * 200;
-            const y = 150 + Math.random() * 100;
-
-            const bat = this.enemies.create(x, y, 'bat');
-            bat.play('bat_fly'); // Now this should work
-            bat.setCollideWorldBounds(true);
-            bat.body.setAllowGravity(false);
-            bat.setVelocityX(50);
-
-        }
-
-        // Create golems with sprite
-        const golemCount = difficulty.enemyCount - batCount;
-        for (let i = 0; i < golemCount; i++) {
-            const x = 400 + i * 300 + Math.random() * 50;
-            const y = 500;
-
-            const golem = this.physics.add.sprite(x, y, "golem");
-            golem.setBounce(0.1);
-            golem.body.setGravityY(800);
-            golem.body.setSize(40, 40);
-            golem.enemyType = "golem";
-            golem.direction = Math.random() > 0.5 ? 1 : -1;
-            golem.patrolDistance = 80 + Math.random() * 40;
-            golem.startX = x;
-            golem.health = difficulty.enemyHealth;
-            golem.isCharging = false;
-            golem.speed = difficulty.enemySpeed * 0.7;
-            this.enemies.add(golem);
-        }
-    }
-
-    createPowerUpSprites() {
-        this.load.image("speedBoost", "assets/sprites/speed.png");
-
-        this.load.spritesheet(
-            "shield-spritesheet",
-            "assets/sprites/rotating_orbs.png",
-            {
-                frameWidth: 32,
-                frameHeight: 32,
-            }
-        );
     }
 
     createWorld() {
@@ -257,10 +211,10 @@ class GameScene extends Phaser.Scene {
             const x = 300 + i * 250 + Math.random() * 100;
             const y = 150 + Math.random() * 200;
 
-            const bat = this.physics.add.sprite(x, y, "bat_frame_0");
+            const bat = this.physics.add.sprite(x, y, "bat");
             bat.play("bat_fly"); // Start animation
             bat.body.setGravityY(0);
-            bat.body.setSize(24, 24);
+            bat.body.setSize(32, 32);
             bat.enemyType = "bat";
             bat.startY = y;
             bat.time = Math.random() * Math.PI * 2;
@@ -313,7 +267,7 @@ class GameScene extends Phaser.Scene {
             powerUp.powerUpType = type;
             this.powerUps.add(powerUp);
 
-            // Enhanced floating animation
+            //Enhanced floating animation
             this.tweens.add({
                 targets: powerUp,
                 y: powerUp.y - 15,
@@ -324,14 +278,14 @@ class GameScene extends Phaser.Scene {
             });
 
             // Pulsing glow effect
-            this.tweens.add({
-                targets: powerUp,
-                alpha: 0.5,
-                duration: 1000,
-                ease: "Sine.easeInOut",
-                yoyo: true,
-                repeat: -1,
-            });
+            // this.tweens.add({
+            //     targets: powerUp,
+            //     alpha: 0.5,
+            //     duration: 1000,
+            //     ease: "Sine.easeInOut",
+            //     yoyo: true,
+            //     repeat: -1,
+            // });
 
             // Rotation
             this.tweens.add({

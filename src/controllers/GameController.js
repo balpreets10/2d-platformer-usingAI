@@ -7,28 +7,7 @@ class GameController {
     }
 
     setupInput(scene) {
-        //this.keys = scene.input.keyboard.addKeys("SPACE,SHIFT,A,UP,LEFT,RIGHT");
         this.jumpPressed = false;
-
-        // Jump with SPACE or UP arrow
-        // this.keys.SPACE.on("down", () => {
-        //     this.handleJump();
-        // });
-        // this.keys.SPACE.on("up", () => {
-        //     this.jumpPressed = false;
-        // });
-
-        // this.keys.UP.on("down", () => {
-        //     this.handleJump();
-        // });
-        // this.keys.UP.on("up", () => {
-        //     this.jumpPressed = false;
-        // });
-
-        // // Attack
-        // this.keys.A.on("down", () => {
-        //     this.handleAttack();
-        // });
     }
     handleJump() {
         const player = this.view.player;
@@ -61,8 +40,7 @@ class GameController {
         // Reset movement state
         this.model.player.isMoving = false;
 
-        // Update player animation
-        this.view.updatePlayerAnimation();
+
 
         // Update model position
         this.model.player.x = player.x;
@@ -73,5 +51,8 @@ class GameController {
             this.model.takeDamage();
             player.setPosition(100, 400);
         }
+
+        // Update player animation
+        this.view.updatePlayerAnimation();
     }
 }

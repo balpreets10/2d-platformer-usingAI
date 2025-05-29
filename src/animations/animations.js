@@ -53,7 +53,19 @@ class AnimationManager {
                 end: 3,
                 first: 0
             }),
-            frameRate: 8,
+            frameRate: 4,
+            repeat: -1
+        });
+
+        // Shield animations
+        scene.anims.create({
+            key: 'shield',
+            frames: scene.anims.generateFrameNumbers('shield', {
+                start: 21,
+                end: 24,
+                first: 0
+            }),
+            frameRate: 16,
             repeat: -1
         });
 
