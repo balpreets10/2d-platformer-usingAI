@@ -1,0 +1,40 @@
+ // this.load.spritesheet("player", "assets/img/george.png", {
+          //   frameWidth: 48,
+          //   frameHeight: 48,
+          // });
+
+          // this.load.spritesheet("bat", "assets/img/bat-sprite.png", {
+          //   frameWidth: 32,
+          //   frameHeight: 32,
+          // });
+
+
+           // Shield with magical aura
+          // const shieldGraphics = this.add.graphics();
+          // shieldGraphics.fillStyle(0x87ceeb, 0.4);
+          // shieldGraphics.fillCircle(10, 10, 15);
+          // shieldGraphics.fillStyle(0x0000ff);
+          // shieldGraphics.fillTriangle(10, 2, 2, 16, 18, 16);
+          // shieldGraphics.fillRect(2, 8, 16, 8);
+          // shieldGraphics.fillStyle(0x87ceeb);
+          // shieldGraphics.fillRect(4, 6, 12, 4);
+          // for (let i = 0; i < 6; i++) {
+          //   const sparkleX = 2 + Math.random() * 16;
+          //   const sparkleY = 2 + Math.random() * 16;
+          //   shieldGraphics.fillStyle(0xffffff);
+          //   shieldGraphics.fillRect(sparkleX, sparkleY, 1, 1);
+          // }
+          // shieldGraphics.generateTexture("shield", 20, 20);
+          // shieldGraphics.destroy();
+
+
+             // Speed boost with particle effect
+          // const speedGraphics = this.add.graphics();
+          // speedGraphics.fillStyle(0x90ee90, 0.3);
+          // speedGraphics.fillCircle(10, 10, 18);
+          // speedGraphics.fillStyle(0x00ff00);
+          // speedGraphics.fillStar(10, 10, 5, 8, 4);
+          // speedGraphics.fillStyle(0xffff00);
+          // speedGraphics.fillCircle(10, 10, 3);
+          // speedGraphics.generateTexture("speedBoost", 20, 20);
+          // speedGraphics.destroy();
